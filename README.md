@@ -2,7 +2,7 @@
 
 ## GAN
 ### 예제
-#### 
+#### GANs in 50 lines of pytorch
 
 
 
