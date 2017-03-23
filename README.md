@@ -1,5 +1,10 @@
 # gan-in-torch
 
-## Resources
-+ aa
- + aa
+## GAN
+### 예제
+#### GANs in 50 lines of pytorch
+
+
+
+## Papers
+### GAN
