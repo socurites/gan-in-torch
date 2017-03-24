@@ -91,4 +91,3 @@ tf.global_variables_initializer().run()
 # pretraining discriminator
 num_pretrain_steps = 1000
 d = (np.random.random(batch_size) - 0.5) * 10.0
-labels = norm.pdf(d, loc=data.mu, scale=data.sigma)

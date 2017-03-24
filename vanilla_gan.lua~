@@ -147,7 +147,7 @@ for epoch = 1, num_epochs do
         gen_x = gi_sampler(1000, g_input_size)
         g_fake_x = netG:forward(gen_x)
         gnuplot.pngfigure(epoch .. '.png')
-        gnuplot.hist(g_fake_x)
+        gnuplot.hist(g_fake_data)
         gnuplot.plotflush()
     end
 end
