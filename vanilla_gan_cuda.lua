@@ -2,6 +2,9 @@ require 'torch'
 require 'nn'
 require 'optim'
 require 'gnuplot'
+require 'cutorch'
+require 'cunn'
+require 'cudnn'
 
 -- Data params
 data_mean = 4
@@ -26,7 +29,7 @@ print_interval = 200
 save_interval = 5000
 -- 'k' steps in the original GAN paper.
 -- Can put the discriminator on higher training freq than generator
-d_steps = 100
+d_steps = 1
 g_steps = 1
 
 optimStateD = {
@@ -43,7 +46,7 @@ optimStateG = {
 -- Gaussian
 d_sampler = function(n)
     samples = torch.zeros(n):apply(function() i = torch.normal(data_mean, data_stddev); return i; end)
-    return samples:sort()
+    return samples:cuda():sort()
 end
 
 -- Generator Input
@@ -51,7 +54,7 @@ gi_sampler = function(m, n)
     --samples = torch.rand(m, n):view(-1):sort()
     --return samples:view(m, n)
     samples = torch.linspace(-8, 8, m) + torch.rand(m)*0.01
-    return samples:view(m, n)
+    return samples:view(m, n):cuda()
 end
 
 decorate_with_diffs = function(data, exponent)
@@ -72,6 +75,7 @@ netG = nn.Sequential()
 netG:add(nn.Linear(g_input_size, g_hidden_size))
 netG:add(nn.SoftPlus())
 netG:add(nn.Linear(g_hidden_size, g_output_size))
+netG:cuda()
 
 -- Discriminator model
 netD = nn.Sequential()
@@ -83,13 +87,18 @@ netD:add(nn.Linear(d_hidden_size, d_hidden_size))
 netD:add(nn.ELU())
 netD:add(nn.Linear(d_hidden_size, d_output_size))
 netD:add(nn.Sigmoid())
+netD:cuda()
 
 -- Binary cross entropy
-criterion = nn.BCECriterion()
+criterion = nn.BCECriterion():cuda()
 
 parametersD, gradParametersD = netD:getParameters()
 parametersG, gradParametersG = netG:getParameters()
 
+parametersD = parametersD:cuda()
+gradParametersD = gradParametersD:cuda()
+parametersG = parametersG:cuda()
+gradParametersG = gradParametersG:cuda()
 
 -- create closure to evaluate f(X) and df/dX of discriminator
 fDx = function(x)
@@ -97,7 +106,7 @@ fDx = function(x)
     -- train with real
     d_real_data = d_sampler(d_input_size)
     d_real_decision = netD:forward(preprocess(d_real_data))
-    d_real_label = torch.ones(1)
+    d_real_label = torch.ones(1):cuda()
     d_real_error = criterion:forward(d_real_decision, d_real_label)
     df_do = criterion:backward(d_real_decision, d_real_label)
     netD:backward(preprocess(d_real_data), df_do)
@@ -105,7 +114,7 @@ fDx = function(x)
     d_gen_input = gi_sampler(minibatch_size, g_input_size)
     d_fake_data = netG:forward(d_gen_input)
     d_fake_decision = netD:forward(preprocess(d_fake_data:view(-1)))
-    d_fake_label = torch.zeros(1)
+    d_fake_label = torch.zeros(1):cuda()
     d_fake_error = criterion:forward(d_fake_decision, d_fake_label)
     df_do = criterion:backward(d_fake_decision, d_fake_label)
     netD:backward(preprocess(d_real_data), df_do)
@@ -115,11 +124,11 @@ end
 
 
 fGx = function(x)
-    gradParametersG:zero()
+    gradParametersG:zero():cuda()
     gen_input = gi_sampler(minibatch_size, g_input_size)
     g_fake_data = netG:forward(gen_input)
     dg_fake_decision = netD:forward(preprocess(g_fake_data:view(-1)))
-    dg_fake_label = torch.ones(1)
+    dg_fake_label = torch.ones(1):cuda()
     g_error = criterion:forward(dg_fake_decision, dg_fake_label)
     df_do = criterion:backward(dg_fake_decision, dg_fake_label)
     df_dg = netD:updateGradInput(preprocess(g_fake_data:view(-1)), df_do)
